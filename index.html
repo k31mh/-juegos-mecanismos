@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juegos: principios básicos de mecanismos</title>
+<style>
+  :root{
+    --azul:#0b2545; --azul2:#13315c; --turq:#0f8b8d; --turq-osc:#0a6668; --turq-claro:#dcf2f2;
+    --fondo:#f4f8fb; --texto:#1b1f24; --blanco:#ffffff; --borde:#b9c9d8;
+    --error:#a4241c; --error-claro:#fdeceb; --ok:#0b6e4f; --ok-claro:#e0f3ea; --sel:#ffe9a8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fondo);color:var(--texto);line-height:1.5}
+  header{background:var(--azul);color:var(--blanco);padding:16px}
+  header h1{margin:0;font-size:1.35rem}
+  header p{margin:4px 0 0;font-size:.95rem;color:#e3edf6}
+  nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--azul2);align-items:center}
+  nav .tab{background:transparent;color:var(--blanco);border:2px solid var(--turq-claro);border-radius:8px;padding:8px 14px;font-size:1rem;cursor:pointer;min-height:44px}
+  nav .tab[aria-pressed="true"]{background:var(--turq-claro);color:var(--azul);font-weight:700}
+  nav .tab[aria-pressed="true"]::before{content:"▶ "}
+  nav .reiniciar{margin-left:auto;background:var(--turq);color:var(--blanco);border:2px solid var(--turq);border-radius:8px;padding:8px 14px;font-size:1rem;cursor:pointer;min-height:44px;font-weight:600}
+  main{max-width:980px;margin:0 auto;padding:16px}
+  .aviso{background:var(--turq-claro);border-left:6px solid var(--turq);padding:10px 12px;border-radius:6px;font-weight:700;margin:0 0 12px}
+  .instr{margin:0 0 12px}
+  section[hidden]{display:none}
+  h2{color:var(--azul);margin:8px 0}
+  h3{color:var(--azul2);margin:12px 0 6px;font-size:1.05rem}
+  .tarjeta{background:var(--blanco);border:1px solid var(--borde);border-radius:10px;padding:14px;margin-bottom:12px}
+  .msg{min-height:1.5em;font-weight:600;margin:8px 0}
+  .msg.bien{color:var(--ok)} .msg.mal{color:var(--error)}
+  button.accion{background:var(--azul);color:var(--blanco);border:none;border-radius:8px;padding:10px 16px;font-size:1rem;cursor:pointer;min-height:44px;margin:4px 6px 4px 0}
+  button.accion.sec{background:var(--blanco);color:var(--azul);border:2px solid var(--azul)}
+  button:focus-visible,input:focus-visible{outline:3px solid #f2a900;outline-offset:2px}
+
+  /* Ahorcado */
+  .ah-layout{display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start}
+  .ah-dibujo svg{width:100%;max-width:200px;height:auto}
+  .ah-dibujo line,.ah-dibujo circle{stroke:var(--azul);stroke-width:4;fill:none;stroke-linecap:round}
+  .ah-palabra{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .ah-letra{width:34px;height:42px;border-bottom:3px solid var(--azul);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--azul)}
+  .ah-letra.revelada{color:var(--error);text-decoration:underline dotted}
+  .teclado{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;margin-top:10px}
+  .teclado button{min-height:44px;font-size:1.1rem;font-weight:700;border:2px solid var(--azul);background:var(--blanco);color:var(--azul);border-radius:6px;cursor:pointer;position:relative}
+  .teclado button:disabled{cursor:default}
+  .teclado button.si{background:var(--ok-claro);border-color:var(--ok);color:var(--ok)}
+  .teclado button.no{background:var(--error-claro);border-color:var(--error);color:var(--error);text-decoration:line-through}
+  .teclado .marca{font-size:.75rem;margin-left:2px}
+  .resultado{border-left:6px solid var(--turq);background:var(--turq-claro);padding:10px 12px;border-radius:6px;margin-top:10px}
+
+  /* Sopa de letras */
+  .sp-layout{display:grid;grid-template-columns:minmax(0,480px) 1fr;gap:16px;align-items:start}
+  .sp-grid{display:grid;grid-template-columns:repeat(12,1fr);width:100%;max-width:480px;user-select:none;-webkit-user-select:none;touch-action:none;border:2px solid var(--azul);border-radius:6px;overflow:hidden;background:var(--blanco)}
+  .sp-celda{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(.85rem,3.6vw,1.2rem);color:var(--azul);border:1px solid #e3eaf1;cursor:pointer}
+  .sp-celda.sel{background:var(--sel);outline:2px solid #b8860b;outline-offset:-2px}
+  .sp-celda.ancla{background:var(--sel);box-shadow:inset 0 0 0 3px #b8860b}
+  .sp-celda.encontrada{background:var(--turq);color:var(--blanco);text-decoration:underline;text-decoration-thickness:2px}
+  .sp-lista{list-style:none;padding:0;margin:0}
+  .sp-lista li{padding:6px 8px;border:1px solid var(--borde);border-radius:6px;margin-bottom:6px;font-weight:700;letter-spacing:.05em;background:var(--blanco)}
+  .sp-lista li.hecha{background:var(--ok-claro);border-color:var(--ok);color:var(--ok);text-decoration:line-through}
+  .sp-lista li.hecha::after{content:"  ✓ encontrada";text-decoration:none;display:inline-block;margin-left:6px;font-weight:600;letter-spacing:0}
+  .defs dt{font-weight:700;color:var(--azul)}
+  .defs dd{margin:0 0 8px 0}
+
+  /* Crucigrama */
+  .cr-layout{display:grid;grid-template-columns:minmax(0,460px) 1fr;gap:16px;align-items:start}
+  .cr-grid{display:grid;width:100%;max-width:460px;gap:2px}
+  .cr-vacia{aspect-ratio:1/1}
+  .cr-celda{aspect-ratio:1/1;position:relative;background:var(--blanco);border:2px solid var(--azul);border-radius:3px}
+  .cr-celda input{width:100%;height:100%;border:none;background:transparent;text-align:center;font-size:clamp(.95rem,3.6vw,1.3rem);font-weight:700;color:var(--azul);text-transform:uppercase;padding:0;border-radius:0}
+  .cr-celda .num{position:absolute;top:0;left:2px;font-size:.6rem;font-weight:700;color:var(--azul2);pointer-events:none}
+  .cr-celda .marca{position:absolute;bottom:0;right:2px;font-size:.65rem;font-weight:700;pointer-events:none}
+  .cr-celda.activa{background:var(--turq-claro)}
+  .cr-celda.foco{background:#bfe7e7}
+  .cr-celda.bien{border-color:var(--ok);background:var(--ok-claro)}
+  .cr-celda.bien .marca{color:var(--ok)}
+  .cr-celda.mal{border-color:var(--error);border-style:dashed;background:var(--error-claro)}
+  .cr-celda.mal .marca{color:var(--error)}
+  .pistas ol{list-style:none;padding:0;margin:0}
+  .pistas li{margin-bottom:6px}
+  .pistas button{display:block;width:100%;text-align:left;background:var(--blanco);border:1px solid var(--borde);border-radius:6px;padding:8px;font-size:.95rem;cursor:pointer;color:var(--texto)}
+  .pistas button.actual{border:2px solid var(--turq);background:var(--turq-claro)}
+  .estado{display:block;font-size:.85rem;font-weight:700;margin-top:2px}
+  .estado.bien{color:var(--ok)} .estado.mal{color:var(--error)}
+
+  @media (max-width:700px){
+    .ah-layout,.sp-layout,.cr-layout{grid-template-columns:1fr}
+    .ah-dibujo svg{max-width:150px}
+    nav .reiniciar{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Principios básicos de mecanismos</h1>
+  <p>Juegos para reconocer piezas que transmiten y transforman el movimiento.</p>
+</header>
+
+<nav aria-label="Elegir juego">
+  <button class="tab" data-juego="ahorcado" aria-pressed="true">Ahorcado</button>
+  <button class="tab" data-juego="sopa" aria-pressed="false">Sopa de letras</button>
+  <button class="tab" data-juego="cruci" aria-pressed="false">Crucigrama</button>
+  <button class="reiniciar" id="btn-reiniciar" type="button">↻ Reiniciar este juego</button>
+</nav>
+
+<main>
+  <p class="aviso">Use palabras en MAYÚSCULAS y SIN TILDES.</p>
+
+  <!-- AHORCADO -->
+  <section id="juego-ahorcado" aria-labelledby="t-ah">
+    <h2 id="t-ah">Ahorcado</h2>
+    <p class="instr">Lea la pista y elija letras con el teclado de la pantalla o con el de su equipo. Tiene 6 intentos fallidos por palabra. Una letra repetida no cuenta como error.</p>
+    <div class="tarjeta ah-layout">
+      <div class="ah-dibujo" aria-hidden="true">
+        <svg viewBox="0 0 200 220">
+          <line x1="20" y1="210" x2="140" y2="210"/>
+          <line x1="50" y1="210" x2="50" y2="20"/>
+          <line x1="50" y1="20" x2="130" y2="20"/>
+          <line x1="130" y1="20" x2="130" y2="45"/>
+          <circle class="parte" cx="130" cy="65" r="20"/>
+          <line class="parte" x1="130" y1="85" x2="130" y2="145"/>
+          <line class="parte" x1="130" y1="100" x2="105" y2="125"/>
+          <line class="parte" x1="130" y1="100" x2="155" y2="125"/>
+          <line class="parte" x1="130" y1="145" x2="108" y2="185"/>
+          <line class="parte" x1="130" y1="145" x2="152" y2="185"/>
+        </svg>
+      </div>
+      <div>
+        <p id="ah-progreso" style="margin:0;font-weight:700"></p>
+        <p style="margin:6px 0 0"><strong>Pista:</strong> <span id="ah-pista"></span></p>
+        <div class="ah-palabra" id="ah-palabra" role="img"></div>
+        <p id="ah-intentos" style="margin:0"></p>
+        <p class="msg" id="ah-msg" aria-live="polite"></p>
+        <div class="teclado" id="ah-teclado" aria-label="Teclado de letras"></div>
+        <div id="ah-resultado"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOPA DE LETRAS -->
+  <section id="juego-sopa" aria-labelledby="t-sp" hidden>
+    <h2 id="t-sp">Sopa de letras</h2>
+    <p class="instr">Las palabras pueden estar en horizontal (→), vertical (↓) o diagonal (↘ y ↗). Arrastre con el mouse o el dedo desde la primera hasta la última letra. También puede tocar la primera letra y luego la última.</p>
+    <div class="sp-layout">
+      <div>
+        <div class="sp-grid" id="sp-grid" aria-label="Cuadrícula de la sopa de letras"></div>
+        <p class="msg" id="sp-msg" aria-live="polite"></p>
+      </div>
+      <div>
+        <div class="tarjeta">
+          <h3 style="margin-top:0">Palabras por encontrar</h3>
+          <ul class="sp-lista" id="sp-lista"></ul>
+        </div>
+        <div class="tarjeta">
+          <h3 style="margin-top:0">Definiciones encontradas</h3>
+          <dl class="defs" id="sp-defs"><dd>Aparecerán aquí al encontrar cada palabra.</dd></dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CRUCIGRAMA -->
+  <section id="juego-cruci" aria-labelledby="t-cr" hidden>
+    <h2 id="t-cr">Crucigrama</h2>
+    <p class="instr">Toque una pista o una casilla y escriba. Al tocar dos veces la misma casilla, cambia entre horizontal y vertical. Use «Comprobar» cuando quiera revisar: las casillas correctas muestran ✓ y las que debe revisar muestran ✗.</p>
+    <div class="cr-layout">
+      <div>
+        <div class="cr-grid" id="cr-grid" aria-label="Cuadrícula del crucigrama"></div>
+        <div style="margin-top:10px">
+          <button class="accion" id="cr-comprobar" type="button">Comprobar</button>
+          <button class="accion sec" id="cr-borrar-mal" type="button">Borrar letras marcadas con ✗</button>
+        </div>
+        <p class="msg" id="cr-msg" aria-live="polite"></p>
+      </div>
+      <div class="tarjeta pistas">
+        <h3 style="margin-top:0">Horizontales</h3>
+        <ol id="cr-h"></ol>
+        <h3>Verticales</h3>
+        <ol id="cr-v"></ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== Datos de la actividad ===== */
+const CONCEPTOS = [
+  {palabra:"ENGRANAJE",   nombre:"engranaje",   def:"Mecanismo formado por dos o más ruedas dentadas que se acoplan para transmitir el movimiento de giro."},
+  {palabra:"POLEA",       nombre:"polea",       def:"Rueda con una ranura por donde pasa una banda o cuerda, usada para transmitir movimiento a distancia o levantar objetos con menos esfuerzo."},
+  {palabra:"PALANCA",     nombre:"palanca",     def:"Barra rígida que gira sobre un punto de apoyo y permite mover una carga aplicando una fuerza."},
+  {palabra:"EJE",         nombre:"eje",         def:"Pieza alargada sobre la que giran las ruedas y que lleva el movimiento de una parte a otra del mecanismo."},
+  {palabra:"TRANSMISION", nombre:"transmisión", def:"Paso del movimiento desde la pieza que lo produce, como un motor, hasta la pieza que realiza el trabajo."}
+];
+const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
+
+/* ===== Utilidades ===== */
+const TILDES = {"Á":"A","À":"A","Ä":"A","Â":"A","É":"E","È":"E","Ë":"E","Ê":"E","Í":"I","Ì":"I","Ï":"I","Î":"I","Ó":"O","Ò":"O","Ö":"O","Ô":"O","Ú":"U","Ù":"U","Ü":"U","Û":"U"};
+function normalizar(texto){
+  // Mayúsculas, vocales sin tilde; la Ñ se conserva como letra propia.
+  return String(texto).toUpperCase().split("").map(c => TILDES[c] || c).join("");
+}
+function letraValida(c){ return ALFABETO.includes(c); }
+function azar(n){ return Math.floor(Math.random()*n); }
+function barajar(a){ const b=a.slice(); for(let i=b.length-1;i>0;i--){const j=azar(i+1);[b[i],b[j]]=[b[j],b[i]];} return b; }
+function mensaje(id, texto, tipo){ const m=document.getElementById(id); m.textContent=texto; m.className="msg"+(tipo?" "+tipo:""); }
+function conceptoDe(palabra){ return CONCEPTOS.find(c=>c.palabra===palabra); }
+
+/* ===== Menú ===== */
+let juegoActivo = "ahorcado";
+document.querySelectorAll("nav .tab").forEach(b=>{
+  b.addEventListener("click",()=>{
+    juegoActivo = b.dataset.juego;
+    document.querySelectorAll("nav .tab").forEach(x=>x.setAttribute("aria-pressed", x===b ? "true":"false"));
+    ["ahorcado","sopa","cruci"].forEach(j=>{ document.getElementById("juego-"+j).hidden = (j!==juegoActivo); });
+  });
+});
+document.getElementById("btn-reiniciar").addEventListener("click",()=>{
+  if(juegoActivo==="ahorcado") iniciarAhorcado();
+  else if(juegoActivo==="sopa") iniciarSopa();
+  else iniciarCruci();
+});
+
+/* ======================= AHORCADO ======================= */
+const MAX_ERRORES = 6;
+const ah = {orden:[], i:0, usadas:new Set(), errores:0, fin:false, completadas:0};
+
+function iniciarAhorcado(){
+  ah.orden = barajar(CONCEPTOS.map((_,k)=>k));
+  ah.i = 0; ah.completadas = 0;
+  nuevaPalabraAhorcado();
+}
+function nuevaPalabraAhorcado(){
+  ah.usadas = new Set(); ah.errores = 0; ah.fin = false;
+  document.getElementById("ah-resultado").innerHTML = "";
+  mensaje("ah-msg","");
+  renderAhorcado();
+}
+function conceptoAhorcado(){ return CONCEPTOS[ah.orden[ah.i]]; }
+
+function probarLetra(entrada){
+  const l = normalizar(entrada);
+  if(ah.fin || !letraValida(l)) return;
+  if(ah.usadas.has(l)){ mensaje("ah-msg",`Ya probó la letra ${l}. No se cuenta de nuevo.`); return; }
+  ah.usadas.add(l);
+  const p = conceptoAhorcado().palabra;
+  if(p.includes(l)) mensaje("ah-msg",`✓ La letra ${l} está en la palabra.`,"bien");
+  else { ah.errores++; mensaje("ah-msg",`✗ La letra ${l} no está en la palabra.`,"mal"); }
+  const completa = [...p].every(c=>ah.usadas.has(c));
+  if(completa) terminarAhorcado(true);
+  else if(ah.errores>=MAX_ERRORES) terminarAhorcado(false);
+  renderAhorcado();
+}
+
+function terminarAhorcado(gano){
+  ah.fin = true;
+  if(gano) ah.completadas++;
+  const c = conceptoAhorcado();
+  const ultima = ah.i === ah.orden.length-1;
+  const caja = document.getElementById("ah-resultado");
+  caja.innerHTML = "";
+  const div = document.createElement("div"); div.className="resultado";
+  const t = document.createElement("p"); t.style.margin="0 0 6px"; t.style.fontWeight="700";
+  t.textContent = gano ? `✓ ¡Muy bien! Descubrió la palabra ${c.palabra}.` : `Esta vez no se completó. La palabra era ${c.palabra}.`;
+  const d = document.createElement("p"); d.style.margin="0";
+  const s = document.createElement("strong"); s.textContent = `Significado de «${c.nombre}»: `;
+  d.appendChild(s); d.appendChild(document.createTextNode(c.def));
+  div.appendChild(t); div.appendChild(d);
+  if(ultima){
+    const f = document.createElement("p"); f.style.margin="8px 0 0";
+    f.textContent = `Terminó las ${ah.orden.length} palabras. Descubrió ${ah.completadas} de ${ah.orden.length}. Puede usar «Reiniciar este juego» para practicar otra vez.`;
+    div.appendChild(f);
+  } else {
+    const b = document.createElement("button"); b.className="accion"; b.type="button"; b.textContent="Siguiente palabra →";
+    b.addEventListener("click",()=>{ ah.i++; nuevaPalabraAhorcado(); });
+    div.appendChild(b);
+  }
+  caja.appendChild(div);
+  mensaje("ah-msg", gano ? "✓ Palabra completa." : "Se acabaron los intentos para esta palabra.", gano ? "bien" : "mal");
+}
+
+function renderAhorcado(){
+  const c = conceptoAhorcado();
+  document.getElementById("ah-progreso").textContent = `Palabra ${ah.i+1} de ${ah.orden.length} · ${c.palabra.length} letras`;
+  document.getElementById("ah-pista").textContent = c.def;
+  const cont = document.getElementById("ah-palabra"); cont.innerHTML="";
+  let visible = [];
+  [...c.palabra].forEach(letra=>{
+    const s = document.createElement("span"); s.className="ah-letra";
+    if(ah.usadas.has(letra)){ s.textContent = letra; visible.push(letra); }
+    else if(ah.fin){ s.textContent = letra; s.classList.add("revelada"); visible.push(letra); }
+    else { s.textContent = ""; visible.push("espacio vacío"); }
+    cont.appendChild(s);
+  });
+  cont.setAttribute("aria-label","Palabra: "+visible.join(", "));
+  document.getElementById("ah-intentos").textContent = `Intentos fallidos: ${ah.errores} de ${MAX_ERRORES}`;
+  document.querySelectorAll("#juego-ahorcado .parte").forEach((p,k)=>{ p.style.display = k < ah.errores ? "" : "none"; });
+  const tec = document.getElementById("ah-teclado"); tec.innerHTML="";
+  ALFABETO.forEach(l=>{
+    const b = document.createElement("button"); b.type="button"; b.textContent=l;
+    if(ah.usadas.has(l)){
+      const esta = c.palabra.includes(l);
+      b.classList.add(esta ? "si" : "no");
+      const m = document.createElement("span"); m.className="marca"; m.textContent = esta ? "✓" : "✗"; b.appendChild(m);
+      b.setAttribute("aria-label", `${l}, ${esta ? "está en la palabra" : "no está en la palabra"}`);
+      b.disabled = true;
+    } else if(ah.fin){ b.disabled = true; }
+    b.addEventListener("click",()=>probarLetra(l));
+    tec.appendChild(b);
+  });
+}
+document.addEventListener("keydown",e=>{
+  if(juegoActivo!=="ahorcado" || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.target && e.target.tagName==="INPUT") return;
+  if(e.key && e.key.length===1){
+    const l = normalizar(e.key);
+    if(letraValida(l)){ e.preventDefault(); probarLetra(l); }
+  }
+});
+
+/* ======================= SOPA DE LETRAS ======================= */
+const SP_N = 12;
+const SP_DIRS = [[0,1],[1,0],[1,1],[-1,1]];           // →  ↓  ↘  ↗
+const SP_TODAS = [[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
+const sp = {grid:[], ubic:{}, encontradas:new Set(), ancla:null, inicio:null, actual:null, arrastre:false};
+
+function generarSopa(){
+  for(let intento=0; intento<500; intento++){
+    const g = Array.from({length:SP_N},()=>Array(SP_N).fill(""));
+    const ubic = {};
+    let ok = true;
+    const orden = [...CONCEPTOS].sort((a,b)=>b.palabra.length-a.palabra.length);
+    const preferidas = barajar(SP_DIRS);   // reparte las palabras entre direcciones distintas
+    for(const [n,c] of orden.entries()){
+      const L = c.palabra.length; let puesta = false;
+      for(let t=0; t<400 && !puesta; t++){
+        const [dr,dc] = t<250 ? preferidas[n % preferidas.length] : SP_DIRS[azar(SP_DIRS.length)];
+        const r = azar(SP_N), col = azar(SP_N);
+        const rf = r+dr*(L-1), cf = col+dc*(L-1);
+        if(rf<0||rf>=SP_N||cf<0||cf>=SP_N) continue;
+        let cabe = true;
+        for(let i=0;i<L;i++){ const x = g[r+dr*i][col+dc*i]; if(x && x!==c.palabra[i]){ cabe=false; break; } }
+        if(!cabe) continue;
+        const celdas = [];
+        for(let i=0;i<L;i++){ g[r+dr*i][col+dc*i] = c.palabra[i]; celdas.push([r+dr*i, col+dc*i]); }
+        ubic[c.palabra] = celdas; puesta = true;
+      }
+      if(!puesta){ ok=false; break; }
+    }
+    if(!ok) continue;
+    const relleno = "ABCDEFGHILMNOPRSTUVZ";
+    for(let r=0;r<SP_N;r++) for(let c=0;c<SP_N;c++) if(!g[r][c]) g[r][c] = relleno[azar(relleno.length)];
+    if(verificarSopa(g, ubic)) return {g, ubic};
+  }
+  throw new Error("No se pudo generar la sopa de letras.");
+}
+
+// Cada palabra debe leerse en su ubicación y aparecer una sola vez en toda la cuadrícula.
+function verificarSopa(g, ubic){
+  for(const c of CONCEPTOS){
+    const cel = ubic[c.palabra];
+    if(!cel || cel.map(([r,k])=>g[r][k]).join("") !== c.palabra) return false;
+    const vistas = new Set();
+    for(let r=0;r<SP_N;r++) for(let k=0;k<SP_N;k++) for(const [dr,dc] of SP_TODAS){
+      const L = c.palabra.length, rf=r+dr*(L-1), cf=k+dc*(L-1);
+      if(rf<0||rf>=SP_N||cf<0||cf>=SP_N) continue;
+      let s="", pos=[];
+      for(let i=0;i<L;i++){ s+=g[r+dr*i][k+dc*i]; pos.push((r+dr*i)+","+(k+dc*i)); }
+      if(s===c.palabra) vistas.add(pos.sort().join("|"));
+    }
+    if(vistas.size !== 1) return false;
+  }
+  return true;
+}
+
+function iniciarSopa(){
+  const {g, ubic} = generarSopa();
+  sp.grid = g; sp.ubic = ubic; sp.encontradas = new Set(); sp.ancla = null;
+  const cont = document.getElementById("sp-grid"); cont.innerHTML = "";
+  for(let r=0;r<SP_N;r++) for(let c=0;c<SP_N;c++){
+    const d = document.createElement("div"); d.className="sp-celda"; d.textContent=g[r][c];
+    d.dataset.r=r; d.dataset.c=c; cont.appendChild(d);
+  }
+  const lista = document.getElementById("sp-lista"); lista.innerHTML="";
+  CONCEPTOS.forEach(c=>{ const li=document.createElement("li"); li.id="sp-li-"+c.palabra; li.textContent=c.palabra; lista.appendChild(li); });
+  document.getElementById("sp-defs").innerHTML = "<dd>Aparecerán aquí al encontrar cada palabra.</dd>";
+  mensaje("sp-msg", `Encontradas: 0 de ${CONCEPTOS.length}.`);
+}
+
+function celdaDe(el){ return el && el.classList && el.classList.contains("sp-celda") ? {r:+el.dataset.r, c:+el.dataset.c} : null; }
+function lineaEntre(a,b){
+  const dr=b.r-a.r, dc=b.c-a.c;
+  if(!(dr===0 || dc===0 || Math.abs(dr)===Math.abs(dc))) return null;
+  const n=Math.max(Math.abs(dr),Math.abs(dc)), sr=Math.sign(dr), sc=Math.sign(dc), out=[];
+  for(let i=0;i<=n;i++) out.push([a.r+sr*i, a.c+sc*i]);
+  return out;
+}
+function pintarSeleccion(celdas){
+  document.querySelectorAll("#sp-grid .sp-celda.sel").forEach(x=>x.classList.remove("sel"));
+  (celdas||[]).forEach(([r,c])=>document.querySelector(`#sp-grid [data-r="${r}"][data-c="${c}"]`).classList.add("sel"));
+}
+function pintarAncla(){
+  document.querySelectorAll("#sp-grid .ancla").forEach(x=>x.classList.remove("ancla"));
+  if(sp.ancla) document.querySelector(`#sp-grid [data-r="${sp.ancla.r}"][data-c="${sp.ancla.c}"]`).classList.add("ancla");
+}
+
+function evaluarSeleccion(celdas){
+  pintarSeleccion(null);
+  if(!celdas){ mensaje("sp-msg","La selección debe ir en línea recta: horizontal, vertical o diagonal.","mal"); return false; }
+  const clave = celdas.map(p=>p.join(",")).join("|");
+  const inversa = celdas.slice().reverse().map(p=>p.join(",")).join("|");
+  for(const c of CONCEPTOS){
+    if(sp.encontradas.has(c.palabra)) continue;
+    const k = sp.ubic[c.palabra].map(p=>p.join(",")).join("|");
+    if(k===clave || k===inversa){ marcarEncontrada(c); return true; }
+  }
+  const texto = celdas.map(([r,k])=>sp.grid[r][k]).join("");
+  const ya = CONCEPTOS.find(c=>sp.encontradas.has(c.palabra) && (c.palabra===texto || c.palabra===[...texto].reverse().join("")));
+  mensaje("sp-msg", ya ? `La palabra ${ya.palabra} ya estaba marcada.` : `«${texto}» no es una de las palabras de la lista. Intente de nuevo.`, ya ? "" : "mal");
+  return false;
+}
+
+function marcarEncontrada(c){
+  sp.encontradas.add(c.palabra);
+  sp.ubic[c.palabra].forEach(([r,k])=>{
+    const d=document.querySelector(`#sp-grid [data-r="${r}"][data-c="${k}"]`);
+    d.classList.add("encontrada");
+  });
+  const li = document.getElementById("sp-li-"+c.palabra); li.classList.add("hecha"); li.setAttribute("aria-label", c.palabra+", encontrada");
+  const defs = document.getElementById("sp-defs");
+  if(sp.encontradas.size===1) defs.innerHTML="";
+  const dt=document.createElement("dt"); dt.textContent=`✓ ${c.palabra} (${c.nombre})`;
+  const dd=document.createElement("dd"); dd.textContent=c.def;
+  defs.appendChild(dt); defs.appendChild(dd);
+  const total = CONCEPTOS.length;
+  if(sp.encontradas.size===total) mensaje("sp-msg",`✓ ¡Excelente! Encontró las ${total} palabras.`,"bien");
+  else mensaje("sp-msg",`✓ Encontró ${c.palabra}. Lleva ${sp.encontradas.size} de ${total}.`,"bien");
+}
+
+(function eventosSopa(){
+  const g = document.getElementById("sp-grid");
+  g.addEventListener("pointerdown",e=>{
+    const p = celdaDe(e.target); if(!p) return;
+    e.preventDefault();
+    sp.inicio = p; sp.actual = p; sp.arrastre = true;
+    if(g.setPointerCapture) { try{ g.setPointerCapture(e.pointerId); }catch(_){} }
+    pintarSeleccion([[p.r,p.c]]);
+  });
+  g.addEventListener("pointermove",e=>{
+    if(!sp.arrastre) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const p = celdaDe(el); if(!p) return;
+    const linea = lineaEntre(sp.inicio, p);
+    if(linea){ sp.actual = p; pintarSeleccion(linea); }
+  });
+  const soltar = ()=>{
+    if(!sp.arrastre) return;
+    sp.arrastre = false;
+    const a = sp.inicio, b = sp.actual;
+    if(a.r===b.r && a.c===b.c){
+      // Modo de toques: primer toque fija el inicio, segundo toque fija el final.
+      if(sp.ancla && !(sp.ancla.r===a.r && sp.ancla.c===a.c)){
+        const linea = lineaEntre(sp.ancla, a); sp.ancla=null; pintarAncla(); evaluarSeleccion(linea);
+      } else if(sp.ancla){ sp.ancla=null; pintarAncla(); pintarSeleccion(null); mensaje("sp-msg","Selección cancelada."); }
+      else { sp.ancla = a; pintarSeleccion(null); pintarAncla(); mensaje("sp-msg","Ahora toque la última letra de la palabra."); }
+    } else {
+      sp.ancla=null; pintarAncla(); evaluarSeleccion(lineaEntre(a,b));
+    }
+  };
+  g.addEventListener("pointerup",soltar);
+  g.addEventListener("pointercancel",()=>{ sp.arrastre=false; pintarSeleccion(null); });
+})();
+
+/* ======================= CRUCIGRAMA ======================= */
+const CR = {
+  filas:9, cols:11,
+  palabras:[
+    {palabra:"ENGRANAJE",   fila:0, col:3, dir:"V"},
+    {palabra:"POLEA",       fila:0, col:9, dir:"V"},
+    {palabra:"TRANSMISION", fila:1, col:0, dir:"H"},
+    {palabra:"EJE",         fila:3, col:7, dir:"H"},
+    {palabra:"PALANCA",     fila:6, col:2, dir:"H"}
+  ]
+};
+const cr = {sol:[], celdas:{}, dir:"H", foco:null, palabraActiva:null};
+
+function celdasDePalabra(w){
+  const out=[]; for(let i=0;i<w.palabra.length;i++) out.push(w.dir==="H" ? [w.fila, w.col+i] : [w.fila+i, w.col]); return out;
+}
+// Construye la solución y comprueba que cada cruce tenga la misma letra y que no haya letras pegadas sin formar palabra.
+function construirCruci(){
+  const sol = Array.from({length:CR.filas},()=>Array(CR.cols).fill(""));
+  const cubre = {};
+  CR.palabras.forEach(w=>{
+    celdasDePalabra(w).forEach(([r,c],i)=>{
+      if(r>=CR.filas || c>=CR.cols) throw new Error(`${w.palabra} se sale de la cuadrícula`);
+      if(sol[r][c] && sol[r][c]!==w.palabra[i]) throw new Error(`Cruce inválido en ${r},${c}`);
+      sol[r][c] = w.palabra[i];
+      (cubre[r+","+c] = cubre[r+","+c] || []).push(w);
+    });
+  });
+  for(let r=0;r<CR.filas;r++) for(let c=0;c<CR.cols;c++){
+    if(!sol[r][c]) continue;
+    if(c+1<CR.cols && sol[r][c+1] && !cubre[r+","+c].some(w=>w.dir==="H" && cubre[r+","+(c+1)].includes(w))) throw new Error(`Letras contiguas sin palabra en ${r},${c}`);
+    if(r+1<CR.filas && sol[r+1][c] && !cubre[r+","+c].some(w=>w.dir==="V" && cubre[(r+1)+","+c].includes(w))) throw new Error(`Letras contiguas sin palabra en ${r},${c}`);
+  }
+  // Numeración por orden de lectura de las casillas iniciales
+  const inicios = [...new Set(CR.palabras.map(w=>w.fila*100+w.col))].sort((a,b)=>a-b);
+  CR.palabras.forEach(w=>{ w.num = inicios.indexOf(w.fila*100+w.col)+1; });
+  return {sol, cubre};
+}
+
+function iniciarCruci(){
+  const {sol, cubre} = construirCruci();
+  cr.sol = sol; cr.cubre = cubre; cr.celdas = {}; cr.foco=null; cr.palabraActiva=null; cr.dir="H";
+  const g = document.getElementById("cr-grid"); g.innerHTML="";
+  g.style.gridTemplateColumns = `repeat(${CR.cols},1fr)`;
+  for(let r=0;r<CR.filas;r++) for(let c=0;c<CR.cols;c++){
+    if(!sol[r][c]){ const v=document.createElement("div"); v.className="cr-vacia"; v.setAttribute("aria-hidden","true"); g.appendChild(v); continue; }
+    const d=document.createElement("div"); d.className="cr-celda";
+    const inicio = CR.palabras.find(w=>w.fila===r && w.col===c);
+    if(inicio){ const n=document.createElement("span"); n.className="num"; n.textContent=inicio.num; d.appendChild(n); }
+    const inp=document.createElement("input");
+    inp.type="text"; inp.maxLength=2; inp.autocomplete="off"; inp.setAttribute("autocapitalize","characters"); inp.spellcheck=false;
+    inp.dataset.r=r; inp.dataset.c=c;
+    const ws = cubre[r+","+c].map(w=>`${w.num} ${w.dir==="H"?"horizontal":"vertical"}`).join(" y ");
+    inp.setAttribute("aria-label",`Casilla de ${ws}`);
+    const m=document.createElement("span"); m.className="marca"; m.setAttribute("aria-hidden","true");
+    d.appendChild(inp); d.appendChild(m); g.appendChild(d);
+    cr.celdas[r+","+c] = {div:d, input:inp, marca:m};
+    inp.addEventListener("focus",()=>enfocarCelda(r,c,false));
+    inp.addEventListener("mousedown",()=>{ if(cr.foco && cr.foco[0]===r && cr.foco[1]===c) cambiarDireccion(r,c); });
+    inp.addEventListener("input",()=>alEscribir(r,c));
+    inp.addEventListener("keydown",e=>teclaCruci(e,r,c));
+  }
+  ["H","V"].forEach(dir=>{
+    const ol=document.getElementById(dir==="H"?"cr-h":"cr-v"); ol.innerHTML="";
+    CR.palabras.filter(w=>w.dir===dir).sort((a,b)=>a.num-b.num).forEach(w=>{
+      const li=document.createElement("li"); const b=document.createElement("button"); b.type="button"; b.id=`pista-${w.num}${dir}`;
+      const t=document.createElement("span"); t.innerHTML=`<strong>${w.num}.</strong> `; t.appendChild(document.createTextNode(`${conceptoDe(w.palabra).def} (${w.palabra.length} letras)`));
+      const e=document.createElement("span"); e.className="estado"; e.id=`estado-${w.num}${dir}`;
+      b.appendChild(t); b.appendChild(e);
+      b.addEventListener("click",()=>{ cr.dir=dir; const [r,c]=celdasDePalabra(w)[0]; cr.celdas[r+","+c].input.focus(); enfocarCelda(r,c,true); });
+      li.appendChild(b); ol.appendChild(li);
+    });
+  });
+  mensaje("cr-msg","");
+}
+
+function palabraEn(r,c,dir){ return (cr.cubre[r+","+c]||[]).find(w=>w.dir===dir); }
+function enfocarCelda(r,c,mantenerDir){
+  if(!mantenerDir && !palabraEn(r,c,cr.dir)) cr.dir = cr.dir==="H" ? "V" : "H";
+  cr.foco=[r,c];
+  cr.palabraActiva = palabraEn(r,c,cr.dir);
+  resaltar();
+}
+function cambiarDireccion(r,c){
+  const otra = cr.dir==="H" ? "V" : "H";
+  if(palabraEn(r,c,otra)){ cr.dir=otra; cr.palabraActiva=palabraEn(r,c,otra); setTimeout(resaltar,0); }
+}
+function resaltar(){
+  Object.values(cr.celdas).forEach(x=>x.div.classList.remove("activa","foco"));
+  document.querySelectorAll(".pistas button").forEach(b=>b.classList.remove("actual"));
+  if(cr.palabraActiva){
+    celdasDePalabra(cr.palabraActiva).forEach(([r,c])=>cr.celdas[r+","+c].div.classList.add("activa"));
+    const b=document.getElementById(`pista-${cr.palabraActiva.num}${cr.palabraActiva.dir}`); if(b) b.classList.add("actual");
+  }
+  if(cr.foco) cr.celdas[cr.foco.join(",")].div.classList.add("foco");
+}
+function limpiarMarca(r,c){ const x=cr.celdas[r+","+c]; x.div.classList.remove("bien","mal"); x.marca.textContent=""; }
+
+function alEscribir(r,c){
+  const x = cr.celdas[r+","+c];
+  const chars = [...normalizar(x.input.value)].filter(letraValida);
+  x.input.value = chars.length ? chars[chars.length-1] : "";
+  limpiarMarca(r,c);
+  if(x.input.value) moverEnPalabra(r,c,1);
+}
+function moverEnPalabra(r,c,paso){
+  const w = cr.palabraActiva || palabraEn(r,c,"H") || palabraEn(r,c,"V");
+  const lista = celdasDePalabra(w);
+  const i = lista.findIndex(([a,b])=>a===r && b===c);
+  const sig = lista[i+paso];
+  if(sig) cr.celdas[sig.join(",")].input.focus();
+}
+function teclaCruci(e,r,c){
+  const x = cr.celdas[r+","+c];
+  if(e.key==="Backspace" && !x.input.value){ e.preventDefault(); moverEnPalabra(r,c,-1); return; }
+  const flechas = {ArrowRight:[0,1,"H"],ArrowLeft:[0,-1,"H"],ArrowDown:[1,0,"V"],ArrowUp:[-1,0,"V"]};
+  if(flechas[e.key]){
+    e.preventDefault();
+    const [dr,dc,dir]=flechas[e.key];
+    if(cr.dir!==dir && palabraEn(r,c,dir)){ cr.dir=dir; enfocarCelda(r,c,true); return; }
+    let rr=r+dr, cc=c+dc;
+    while(rr>=0 && rr<CR.filas && cc>=0 && cc<CR.cols){
+      if(cr.celdas[rr+","+cc]){ cr.dir = palabraEn(rr,cc,dir) ? dir : cr.dir; cr.celdas[rr+","+cc].input.focus(); enfocarCelda(rr,cc,true); return; }
+      rr+=dr; cc+=dc;
+    }
+  }
+}
+
+function comprobarCruci(){
+  let correctas=0, vacias=0;
+  Object.entries(cr.celdas).forEach(([k,x])=>{
+    const [r,c]=k.split(",").map(Number);
+    const v = x.input.value;
+    x.div.classList.remove("bien","mal"); x.marca.textContent="";
+    if(!v){ vacias++; return; }
+    if(v===cr.sol[r][c]){ x.div.classList.add("bien"); x.marca.textContent="✓"; }
+    else { x.div.classList.add("mal"); x.marca.textContent="✗"; }
+  });
+  CR.palabras.forEach(w=>{
+    const cel = celdasDePalabra(w);
+    const vals = cel.map(([r,c])=>cr.celdas[r+","+c].input.value);
+    const e = document.getElementById(`estado-${w.num}${w.dir}`);
+    if(vals.join("")===w.palabra){ correctas++; e.textContent="✓ Correcta"; e.className="estado bien"; }
+    else if(vals.some(v=>!v)){ e.textContent="… Incompleta"; e.className="estado"; }
+    else { e.textContent="✗ Revise esta palabra"; e.className="estado mal"; }
+  });
+  const total = CR.palabras.length;
+  if(correctas===total) mensaje("cr-msg",`✓ ¡Excelente! Las ${total} palabras están correctas.`,"bien");
+  else mensaje("cr-msg",`Lleva ${correctas} de ${total} palabras correctas.${vacias?` Quedan ${vacias} casillas vacías.`:""} Puede corregir las casillas marcadas con ✗.`);
+  return correctas;
+}
+document.getElementById("cr-comprobar").addEventListener("click",comprobarCruci);
+document.getElementById("cr-borrar-mal").addEventListener("click",()=>{
+  let n=0;
+  Object.entries(cr.celdas).forEach(([k,x])=>{ if(x.div.classList.contains("mal")){ x.input.value=""; const [r,c]=k.split(",").map(Number); limpiarMarca(r,c); n++; } });
+  mensaje("cr-msg", n ? `Se borraron ${n} letras para que pueda escribirlas de nuevo.` : "No hay letras marcadas con ✗. Use «Comprobar» primero.");
+});
+
+/* ===== Inicio ===== */
+iniciarAhorcado();
+iniciarSopa();
+iniciarCruci();
+</script>
+</body>
+</html>
